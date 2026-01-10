@@ -9,7 +9,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().transform(Number).default('5000'),
   DATABASE_URL: z.string().url().or(z.string().min(1)),
-  JWT_SECRET: z.string().min(32).default('your_jwt_secret_key_here_min_32_chars'),
+  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_EXPIRES_IN: z.string().default('7d'),
   UPLOAD_PATH: z.string().default('./uploads'),
   FRONTEND_URL: z.string().url().default('http://localhost:3000'),

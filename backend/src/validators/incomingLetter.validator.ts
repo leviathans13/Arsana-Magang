@@ -18,7 +18,7 @@ const dispositionTargetEnum = z.enum([
 // Create incoming letter schema
 export const createIncomingLetterSchema = z.object({
   letterNumber: z.string().min(1, 'Letter number is required'),
-  letterDate: z.string().datetime().optional().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()),
+  letterDate: z.string().optional(),
   letterNature: letterNatureEnum.optional().default('BIASA'),
   subject: z.string().min(1, 'Subject is required'),
   sender: z.string().min(1, 'Sender is required'),

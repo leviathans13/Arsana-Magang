@@ -1,6 +1,6 @@
 import multer from 'multer';
 import path from 'path';
-import { Request } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { FILE_UPLOAD } from '../config/constants';
 import { config } from '../config/env';
 import { generateUniqueFilename, sanitizeFilename } from '../utils/helpers';
@@ -79,7 +79,7 @@ export const uploadSingleIncoming = uploadIncoming.single('file');
 export const uploadSingleOutgoing = uploadOutgoing.single('file');
 
 // Error handling middleware for multer errors
-export const handleMulterError = (err: Error, _req: Request, res: any, next: any): void => {
+export const handleMulterError = (err: Error, _req: Request, res: Response, next: NextFunction): void => {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
       res.status(400).json({

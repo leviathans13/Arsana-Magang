@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import { prisma } from '../config/database';
 import { asyncHandler, NotFoundError } from '../middlewares/error.middleware';
 
@@ -253,8 +254,11 @@ export const deleteFile = asyncHandler(async (req: Request, res: Response) => {
 
   // Delete the file from disk
   const filePath = path.resolve(letter.filePath);
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
+  try {
+    await fsPromises.access(filePath);
+    await fsPromises.unlink(filePath);
+  } catch {
+    // File doesn't exist, continue with database cleanup
   }
 
   // Update the letter to remove file reference

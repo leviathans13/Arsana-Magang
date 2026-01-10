@@ -198,14 +198,6 @@ export const initCronJobs = (): void => {
   });
 
   logger.info('Cron jobs initialized');
-
-  // Run immediately on startup in development
-  if (process.env.NODE_ENV === 'development') {
-    setTimeout(() => {
-      checkUpcomingEvents();
-      checkOverdueFollowUps();
-    }, 5000);
-  }
 };
 
 export default { initCronJobs, checkUpcomingEvents, checkOverdueFollowUps };

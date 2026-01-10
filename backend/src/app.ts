@@ -83,12 +83,40 @@ const startServer = async (): Promise<void> => {
     initCronJobs();
 
     // Start listening
-    app.listen(config.port, () => {
+    const server = app.listen(config.port, () => {
       logger.info(`🚀 Server running on port ${config.port}`);
       logger.info(`📍 Environment: ${config.nodeEnv}`);
       logger.info(`🔗 API: http://localhost:${config.port}/api`);
       logger.info(`🔗 Health: http://localhost:${config.port}/api/health`);
     });
+
+    // Graceful shutdown handler
+    const gracefulShutdown = async (signal: string): Promise<void> => {
+      logger.info(`${signal} received. Starting graceful shutdown...`);
+      
+      server.close(async () => {
+        logger.info('HTTP server closed');
+        
+        try {
+          await prisma.$disconnect();
+          logger.info('Database connection closed');
+          process.exit(0);
+        } catch (error) {
+          logger.error('Error during database disconnect:', error);
+          process.exit(1);
+        }
+      });
+
+      // Force close after 30 seconds
+      setTimeout(() => {
+        logger.error('Forced shutdown after timeout');
+        process.exit(1);
+      }, 30000);
+    };
+
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
   } catch (error) {
     logger.error('Failed to start server:', error);
     process.exit(1);
@@ -96,14 +124,24 @@ const startServer = async (): Promise<void> => {
 };
 
 // Handle uncaught exceptions
-process.on('uncaughtException', (error: Error) => {
+process.on('uncaughtException', async (error: Error) => {
   logger.error('Uncaught Exception:', error);
+  try {
+    await prisma.$disconnect();
+  } catch {
+    // Ignore disconnect errors
+  }
   process.exit(1);
 });
 
 // Handle unhandled promise rejections
-process.on('unhandledRejection', (reason: unknown) => {
+process.on('unhandledRejection', async (reason: unknown) => {
   logger.error('Unhandled Rejection:', reason);
+  try {
+    await prisma.$disconnect();
+  } catch {
+    // Ignore disconnect errors
+  }
   process.exit(1);
 });
 

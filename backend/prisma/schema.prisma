@@ -1,0 +1,243 @@
+// This is your Prisma schema file for ARSANA
+// Document Archive Management System
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum Role {
+  ADMIN
+  STAFF
+}
+
+enum LetterNature {
+  BIASA
+  TERBATAS
+  RAHASIA
+  SANGAT_RAHASIA
+  PENTING
+}
+
+enum SecurityClass {
+  BIASA
+  TERBATAS
+}
+
+enum ProcessingMethod {
+  MANUAL
+  SRIKANDI
+}
+
+enum DispositionTarget {
+  UMPEG
+  PERENCANAAN
+  KAUR_KEUANGAN
+  KABID
+  BIDANG1
+  BIDANG2
+  BIDANG3
+  BIDANG4
+  BIDANG5
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  SUCCESS
+  ERROR
+}
+
+enum EventType {
+  MEETING
+  APPOINTMENT
+  DEADLINE
+  OTHER
+}
+
+// User model
+model User {
+  id              String           @id @default(uuid())
+  email           String           @unique
+  password        String
+  name            String
+  role            Role             @default(STAFF)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  
+  // Relations
+  incomingLetters IncomingLetter[]
+  outgoingLetters OutgoingLetter[]
+  calendarEvents  CalendarEvent[]
+  notifications   Notification[]
+
+  @@map("users")
+}
+
+// Incoming Letter model (Surat Masuk)
+model IncomingLetter {
+  id                        String            @id @default(uuid())
+  letterNumber              String            @unique
+  letterDate                DateTime?
+  letterNature              LetterNature      @default(BIASA)
+  subject                   String
+  sender                    String
+  recipient                 String
+  processor                 String
+  note                      String?
+  receivedDate              DateTime
+  
+  // File attachment
+  fileName                  String?
+  filePath                  String?
+  
+  // Invitation fields
+  isInvitation              Boolean           @default(false)
+  eventDate                 DateTime?
+  eventTime                 String?
+  eventLocation             String?
+  eventNotes                String?
+  
+  // Follow-up fields
+  needsFollowUp             Boolean           @default(false)
+  followUpDeadline          DateTime?
+  
+  // Processing method (Manual/Srikandi)
+  processingMethod          ProcessingMethod  @default(MANUAL)
+  
+  // Disposition
+  dispositionTarget         DispositionTarget?
+  srikandiDispositionNumber String?
+  
+  // Notification tracking
+  overdueNotifiedAt         DateTime?
+  
+  // Metadata
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
+  
+  // Relations
+  userId                    String
+  user                      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  calendarEvents            CalendarEvent[]
+
+  @@index([letterNumber])
+  @@index([receivedDate])
+  @@index([userId])
+  @@map("incoming_letters")
+}
+
+// Outgoing Letter model (Surat Keluar)
+model OutgoingLetter {
+  id                        String            @id @default(uuid())
+  createdDate               DateTime
+  letterDate                DateTime
+  letterNumber              String            @unique
+  letterNature              LetterNature      @default(BIASA)
+  subject                   String
+  sender                    String
+  recipient                 String
+  processor                 String
+  note                      String?
+  
+  // File attachment
+  fileName                  String?
+  filePath                  String?
+  
+  // Invitation fields
+  isInvitation              Boolean           @default(false)
+  eventDate                 DateTime?
+  eventTime                 String?
+  eventLocation             String?
+  eventNotes                String?
+  executionDate             DateTime?
+  
+  // Classification
+  classificationCode        String?
+  serialNumber              Int?
+  securityClass             SecurityClass     @default(BIASA)
+  
+  // Processing method
+  processingMethod          ProcessingMethod  @default(MANUAL)
+  srikandiDispositionNumber String?
+  
+  // Notification tracking
+  overdueNotifiedAt         DateTime?
+  
+  // Metadata
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
+  
+  // Relations
+  userId                    String
+  user                      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  calendarEvents            CalendarEvent[]
+
+  @@index([letterNumber])
+  @@index([letterDate])
+  @@index([userId])
+  @@map("outgoing_letters")
+}
+
+// Calendar Event model
+model CalendarEvent {
+  id               String         @id @default(uuid())
+  title            String
+  description      String?
+  date             DateTime
+  time             String?
+  location         String?
+  type             EventType      @default(OTHER)
+  
+  // Notification flags
+  notified7Days    Boolean        @default(false)
+  notified3Days    Boolean        @default(false)
+  notified1Day     Boolean        @default(false)
+  
+  // Relations
+  userId           String
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  incomingLetterId String?
+  incomingLetter   IncomingLetter? @relation(fields: [incomingLetterId], references: [id], onDelete: SetNull)
+  
+  outgoingLetterId String?
+  outgoingLetter   OutgoingLetter? @relation(fields: [outgoingLetterId], references: [id], onDelete: SetNull)
+  
+  notifications    Notification[]
+  
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([date])
+  @@index([userId])
+  @@map("calendar_events")
+}
+
+// Notification model
+model Notification {
+  id              String           @id @default(uuid())
+  title           String
+  message         String
+  type            NotificationType @default(INFO)
+  isRead          Boolean          @default(false)
+  
+  // Relations
+  userId          String?
+  user            User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  calendarEventId String?
+  calendarEvent   CalendarEvent?   @relation(fields: [calendarEventId], references: [id], onDelete: SetNull)
+  
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}

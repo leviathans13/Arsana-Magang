@@ -54,6 +54,8 @@ export const createIncomingLetterSchema = z.object({
 });
 
 // Update incoming letter schema (all fields optional) with conditional validation
+// Note: This validates only the incoming request data. The controller handles validation
+// against the final combined state (existing + updates) to ensure data integrity.
 export const updateIncomingLetterSchema = z.object({
   letterNumber: z.string().min(1).optional(),
   letterDate: z.string().optional(),

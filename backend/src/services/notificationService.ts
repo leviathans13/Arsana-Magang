@@ -73,7 +73,7 @@ export const createEventNotifications = async (
       logger.info(`Created ${notifications.length} notifications for event: ${eventTitle}`);
     }
   } catch (error) {
-    logger.error('Error creating event notifications:', error);
+    logger.error(`Error creating event notifications for event "${eventTitle}" (date: ${eventDate.toISOString()}):`, error);
     throw error;
   }
 };

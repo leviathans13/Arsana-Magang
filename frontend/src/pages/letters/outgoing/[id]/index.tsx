@@ -9,7 +9,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useOutgoingLetter, useDeleteOutgoingLetter } from '@/hooks/useApi';
 import Layout from '@/components/Layout/Layout';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatDateTime } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
 
 const natureStyles = {
@@ -18,7 +18,9 @@ const natureStyles = {
   RAHASIA: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200', label: 'Rahasia' },
   SANGAT_RAHASIA: { bg: 'bg-red-200', text: 'text-red-900', border: 'border-red-300', label: 'Sangat Rahasia' },
   PENTING: { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-200', label: 'Penting' },
-};
+} as const;
+
+type NatureKey = keyof typeof natureStyles;
 
 const DetailItem = ({ icon: Icon, label, children }: { icon: React.ElementType, label: string, children: React.ReactNode }) => (
   <div className="group">
@@ -100,7 +102,7 @@ export default function OutgoingLetterDetailPage() {
     );
   }
 
-  const natureStyle = natureStyles[letter.letterNature] || natureStyles.BIASA;
+  const natureStyle = natureStyles[letter.letterNature as NatureKey] || natureStyles.BIASA;
 
   return (
     <Layout>
@@ -211,8 +213,8 @@ export default function OutgoingLetterDetailPage() {
               </div>
               <div className="p-6 space-y-4">
                 <div className="flex justify-between items-center pb-3 border-b border-gray-100"><span className="text-sm text-gray-600 font-medium">Dibuat oleh</span><span className="text-sm font-semibold text-gray-900">{letter.user.name}</span></div>
-                <div className="flex justify-between items-center pb-3 border-b border-gray-100"><span className="text-sm text-gray-600 font-medium">Tanggal dibuat</span><span className="text-sm font-semibold text-gray-900">{formatDate(letter.createdAt, true)}</span></div>
-                <div className="flex justify-between items-center"><span className="text-sm text-gray-600 font-medium">Terakhir diubah</span><span className="text-sm font-semibold text-gray-900">{formatDate(letter.updatedAt, true)}</span></div>
+                <div className="flex justify-between items-center pb-3 border-b border-gray-100"><span className="text-sm text-gray-600 font-medium">Tanggal dibuat</span><span className="text-sm font-semibold text-gray-900">{formatDateTime(letter.createdAt)}</span></div>
+                <div className="flex justify-between items-center"><span className="text-sm text-gray-600 font-medium">Terakhir diubah</span><span className="text-sm font-semibold text-gray-900">{formatDateTime(letter.updatedAt)}</span></div>
               </div>
             </div>
           </div>

@@ -80,6 +80,11 @@ export const listOutgoingLettersQuerySchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).optional(),
 });
 
+// ID param schema
+export const idParamSchema = z.object({
+  id: z.string().uuid('Invalid ID format'),
+});
+
 // Types
 export type CreateOutgoingLetterInput = z.infer<typeof createOutgoingLetterSchema>;
 export type UpdateOutgoingLetterInput = z.infer<typeof updateOutgoingLetterSchema>;

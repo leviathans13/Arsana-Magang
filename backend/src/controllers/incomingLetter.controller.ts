@@ -278,6 +278,48 @@ export const updateIncomingLetter = asyncHandler(async (req: Request, res: Respo
     },
   });
 
+  // Handle calendar event based on isInvitation status
+  const finalIsInvitation = data.isInvitation !== undefined ? data.isInvitation : existingLetter.isInvitation;
+  const finalEventDate = data.eventDate !== undefined ? (data.eventDate ? parseDate(data.eventDate) : null) : existingLetter.eventDate;
+  
+  if (finalIsInvitation && finalEventDate) {
+    // Check if calendar event already exists
+    const existingCalendarEvent = await prisma.calendarEvent.findFirst({
+      where: { incomingLetterId: id },
+    });
+
+    const eventData = {
+      title: `[Undangan] ${letter.subject}`,
+      description: letter.eventNotes,
+      date: finalEventDate,
+      time: letter.eventTime,
+      location: letter.eventLocation,
+      type: 'MEETING' as const,
+      userId: existingLetter.userId, // Use existing userId
+    };
+
+    if (existingCalendarEvent) {
+      // Update existing calendar event
+      await prisma.calendarEvent.update({
+        where: { id: existingCalendarEvent.id },
+        data: eventData,
+      });
+    } else {
+      // Create new calendar event
+      await prisma.calendarEvent.create({
+        data: {
+          ...eventData,
+          incomingLetterId: letter.id,
+        },
+      });
+    }
+  } else if (!finalIsInvitation) {
+    // Delete calendar event if no longer an invitation
+    await prisma.calendarEvent.deleteMany({
+      where: { incomingLetterId: id },
+    });
+  }
+
   res.json({
     success: true,
     data: letter,

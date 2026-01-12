@@ -61,34 +61,34 @@ class ApiClient {
   // Auth methods
   async login(credentials: { email: string; password: string }) {
     const response = await this.client.post('/auth/login', credentials);
-    return response.data;
+    return response.data.data; // Backend returns { success, data: { token, user } }
   }
 
   async register(data: { email: string; password: string; name: string; role?: string }) {
     const response = await this.client.post('/auth/register', data);
-    return response.data;
+    return response.data.data; // Backend returns { success, data: { token, user } }
   }
 
   // User methods
   async getCurrentUser() {
-    const response = await this.client.get('/users/me');
-    return response.data;
+    const response = await this.client.get('/auth/me');
+    return response.data.data; // Unwrap: first .data is axios, second is backend { success, data }
   }
 
   async getUsers() {
     const response = await this.client.get('/users');
-    return response.data;
+    return response.data.data; // Backend returns { success, data: users[] }
   }
 
   // Incoming Letters methods
   async getIncomingLetters(params?: { page?: number; limit?: number; search?: string; category?: string; }) {
     const response = await this.client.get('/incoming-letters', { params });
-    return response.data;
+    return response.data.data; // Backend returns { success, data: { letters, pagination } }
   }
 
   async getIncomingLetterById(id: string) {
     const response = await this.client.get(`/incoming-letters/${id}`);
-    return response.data;
+    return response.data.data; // Backend returns { success, data: letter }
   }
 
   async createIncomingLetter(data: FormData) {
@@ -119,7 +119,7 @@ class ApiClient {
         console.log('✅ Success:', response.data);
       }
       
-      return response.data;
+      return response.data.data; // Backend returns { success, data: letter }
     } catch (error: any) {
       // Enhanced error logging for 409 conflicts
       if (error.response?.status === 409) {
@@ -142,50 +142,49 @@ class ApiClient {
 
   async updateIncomingLetter(id: string, data: FormData) {
     const response = await this.client.put(`/incoming-letters/${id}`, data);
-    return response.data;
+    return response.data.data;
   }
 
   async deleteIncomingLetter(id: string) {
     const response = await this.client.delete(`/incoming-letters/${id}`);
-    return response.data;
+    return response.data.data;
   }
 
   // Outgoing Letters methods
   async getOutgoingLetters(params?: { page?: number; limit?: number; search?: string; category?: string; }) {
     const response = await this.client.get('/outgoing-letters', { params });
-    return response.data;
+    return response.data.data;
   }
 
   async getOutgoingLetterById(id: string) {
     const response = await this.client.get(`/outgoing-letters/${id}`);
-    return response.data;
+    return response.data.data;
   }
 
   async createOutgoingLetter(data: FormData) {
     const response = await this.client.post('/outgoing-letters', data);
-    return response.data;
+    return response.data.data;
   }
 
   async updateOutgoingLetter(id: string, data: FormData) {
     const response = await this.client.put(`/outgoing-letters/${id}`, data);
-    return response.data;
+    return response.data.data;
   }
 
   async deleteOutgoingLetter(id: string) {
     const response = await this.client.delete(`/outgoing-letters/${id}`);
-    return response.data;
+    return response.data.data;
   }
 
 
   async getDispositionsByLetter(letterId: string) {
-    // Menggunakan URL yang benar sesuai rute backend
     const response = await this.client.get(`/dispositions/letter/${letterId}`);
-    return response.data;
+    return response.data.data;
   }
 
   async getFileInfo(id: string, type: 'incoming' | 'outgoing') {
     const response = await this.client.get(`/files/${type}/${id}/info`);
-    return response.data;
+    return response.data.data;
   }
    
   async downloadFile(type: 'incoming' | 'outgoing', id: string) {
@@ -203,34 +202,34 @@ class ApiClient {
 
   async getNotifications(params?: { page?: number; limit?: number; unreadOnly?: boolean; }) {
     const response = await this.client.get('/notifications', { params });
-    return response.data;
+    return response.data.data;
   }
 
   async markNotificationAsRead(id: string) {
     const response = await this.client.put(`/notifications/${id}/read`);
-    return response.data;
+    return response.data.data;
   }
 
   async markAllNotificationsAsRead() {
     const response = await this.client.put('/notifications/read-all');
-    return response.data;
+    return response.data.data;
   }
 
   // Calendar methods
   async getCalendarEvents(params?: { start?: string; end?: string }) {
     const response = await this.client.get('/calendar/events', { params });
-    return response.data;
+    return response.data.data;
   }
 
   async getUpcomingEvents(params?: { limit?: number }) {
     const response = await this.client.get('/calendar/upcoming', { params });
-    return response.data;
+    return response.data.data;
   }
 
   // Health check
   async healthCheck() {
     const response = await this.client.get('/health');
-    return response.data;
+    return response.data; // Health check doesn't wrap in data.data
   }
 }
 

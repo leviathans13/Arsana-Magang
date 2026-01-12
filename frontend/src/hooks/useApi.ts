@@ -53,8 +53,8 @@ export const useIncomingLetters = (params?: { page?: number; limit?: number; sea
 
 export const useIncomingLetter = (id?: string) => {
   return useQuery(['incomingLetter', id], 
-    // ✅ PERBAIKAN UTAMA DI SINI: Langsung ekstrak `data` dari response
-    () => apiClient.getIncomingLetterById(id!).then(response => response.data), 
+    // API client already unwraps response.data.data, no need to unwrap again
+    () => apiClient.getIncomingLetterById(id!), 
     {
       enabled: !!id,
     }
@@ -143,8 +143,8 @@ export const useOutgoingLetters = (params?: { page?: number; limit?: number; sea
 
 export const useOutgoingLetter = (id?: string) => {
   return useQuery(['outgoingLetter', id],
-    // ✅ PERBAIKAN DI SINI
-    () => apiClient.getOutgoingLetterById(id!).then(response => response.data),
+    // API client already unwraps response.data.data, no need to unwrap again
+    () => apiClient.getOutgoingLetterById(id!),
     {
       enabled: !!id,
     }

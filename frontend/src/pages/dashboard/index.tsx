@@ -186,14 +186,35 @@ export default function DashboardPage() {
       .slice(0, 5);
   }, [incomingLettersData, outgoingLettersData]);
 
-  const stats = useMemo(() => ({
-    incomingTotal: incomingLettersData?.pagination?.total || 0,
-    outgoingTotal: outgoingLettersData?.pagination?.total || 0,
-    agendaTotal: upcomingEventsData?.events?.length || 0,
-    agendaToday: upcomingEventsData?.events?.filter(
-      (event: any) => new Date(event.date).toDateString() === new Date().toDateString()
-    ) || []
-  }), [incomingLettersData, outgoingLettersData, upcomingEventsData]);
+  const stats = useMemo(() => {
+    // Correctly unwrap upcomingEvents - API returns array directly after unwrap
+    const upcomingEvents = Array.isArray(upcomingEventsData) ? upcomingEventsData : [];
+    
+    // Filter today's agenda
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const agendaToday = upcomingEvents.filter((event: any) => {
+      const eventDate = new Date(event.date);
+      eventDate.setHours(0, 0, 0, 0);
+      return eventDate.getTime() === today.getTime();
+    });
+
+    // Count letters that need follow-up
+    const needsFollowUpCount = incomingLettersData?.letters?.filter(
+      (letter: IncomingLetter) => letter.needsFollowUp === true
+    ).length || 0;
+
+    return {
+      incomingTotal: incomingLettersData?.pagination?.total || 0,
+      outgoingTotal: outgoingLettersData?.pagination?.total || 0,
+      agendaTotal: upcomingEvents.length,
+      agendaToday: agendaToday,
+      needsFollowUp: needsFollowUpCount
+    };
+  }, [incomingLettersData, outgoingLettersData, upcomingEventsData]);
 
   const handleQuickAction = useCallback((path: string) => {
     router.push(path);
@@ -281,7 +302,7 @@ export default function DashboardPage() {
           />
           <StatCard 
             title="Perlu Tindak Lanjut" 
-            value={0} 
+            value={stats.needsFollowUp} 
             icon={AlertCircle} 
             color="bg-gradient-to-br from-rose-500 to-pink-600"
           />

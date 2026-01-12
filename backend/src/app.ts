@@ -10,6 +10,7 @@ import { logger } from './utils/logger';
 import { errorHandler, notFoundHandler, apiRateLimiter, requestLogger } from './middlewares';
 import routes from './routes';
 import { initCronJobs } from './services/cronService';
+import { setupSwagger } from './config/swagger';
 
 // Create Express app
 const app = express();
@@ -63,6 +64,9 @@ app.get('/api/health', (_req: Request, res: Response) => {
   });
 });
 
+// Setup Swagger API documentation
+setupSwagger(app);
+
 // API routes
 app.use('/api', routes);
 
@@ -88,6 +92,7 @@ const startServer = async (): Promise<void> => {
       logger.info(`📍 Environment: ${config.nodeEnv}`);
       logger.info(`🔗 API: http://localhost:${config.port}/api`);
       logger.info(`🔗 Health: http://localhost:${config.port}/api/health`);
+      logger.info(`📚 API Docs: http://localhost:${config.port}/api-docs`);
     });
 
     // Graceful shutdown handler

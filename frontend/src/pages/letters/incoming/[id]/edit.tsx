@@ -228,6 +228,7 @@ export default function EditIncomingLetterPage() {
     watch,
     trigger,
     reset,
+    setValue,
     formState: { errors, isValid, isDirty },
     getValues,
   } = useForm<FormData>({ 
@@ -286,6 +287,51 @@ export default function EditIncomingLetterPage() {
       setExistingFileName(letter.fileName ?? null)
     }
   }, [letterData, reset])
+
+  // Handler untuk toggle section opsional dengan peringatan
+  const handleInvitationToggle = (enabled: boolean) => {
+    const currentIsInvitation = watch("isInvitation")
+    
+    // Warning when disabling invitation (changing from event to non-event)
+    if (currentIsInvitation && !enabled) {
+      const confirmed = window.confirm(
+        "⚠️ Peringatan: Menonaktifkan status undangan/acara akan:\n\n" +
+        "• Menghapus data acara (tanggal, waktu, lokasi)\n" +
+        "• Menghapus entri dari kalender\n" +
+        "• Menghapus notifikasi H-7, H-3, dan H-1 yang terkait\n\n" +
+        "Apakah Anda yakin ingin melanjutkan?"
+      )
+      
+      if (!confirmed) {
+        return // User cancelled, don't toggle
+      }
+    }
+    
+    // Warning when enabling invitation (changing from non-event to event)
+    if (!currentIsInvitation && enabled) {
+      toast.success(
+        "✓ Status undangan/acara diaktifkan.\n" +
+        "Pastikan Anda mengisi tanggal, waktu, dan lokasi acara.",
+        { duration: 5000 }
+      )
+    }
+    
+    setValue("isInvitation", enabled, { shouldValidate: true })
+    if (!enabled) {
+      // Reset values when disabling
+      setValue("eventDate", undefined)
+      setValue("eventTime", undefined)
+      setValue("eventLocation", undefined)
+      setValue("eventNotes", undefined)
+    }
+  }
+
+  const handleFollowUpToggle = (enabled: boolean) => {
+    setValue("needsFollowUp", enabled, { shouldValidate: true })
+    if (!enabled) {
+      setValue("followUpDeadline", undefined)
+    }
+  }
 
   const onSubmit = (data: FormData) => {
     const formData = new FormData()
@@ -726,16 +772,15 @@ export default function EditIncomingLetterPage() {
                 >
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <label className={`flex flex-col space-y-3 cursor-pointer rounded-xl border-2 p-6 text-center transition-all duration-200 hover:shadow-md ${
-                        isInvitation 
-                          ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-500' 
-                          : 'border-gray-200 bg-white hover:border-gray-300'
-                      }`}>
-                        <input 
-                          {...register("isInvitation")} 
-                          type="checkbox" 
-                          className="sr-only" 
-                        />
+                      <button
+                        type="button"
+                        onClick={() => handleInvitationToggle(!isInvitation)}
+                        className={`flex flex-col space-y-3 rounded-xl border-2 p-6 text-center transition-all duration-200 hover:shadow-md ${
+                          isInvitation 
+                            ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-500' 
+                            : 'border-gray-200 bg-white hover:border-gray-300'
+                        }`}
+                      >
                         <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full transition-all duration-200 ${
                           isInvitation ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-600'
                         }`}>
@@ -743,18 +788,17 @@ export default function EditIncomingLetterPage() {
                         </div>
                         <span className="font-semibold text-gray-900">Ini adalah Undangan/Acara</span>
                         <p className="text-sm text-gray-500">Aktifkan untuk mengisi detail acara</p>
-                      </label>
+                      </button>
                       
-                      <label className={`flex flex-col space-y-3 cursor-pointer rounded-xl border-2 p-6 text-center transition-all duration-200 hover:shadow-md ${
-                        needsFollowUp 
-                          ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-500' 
-                          : 'border-gray-200 bg-white hover:border-gray-300'
-                      }`}>
-                        <input 
-                          {...register("needsFollowUp")} 
-                          type="checkbox" 
-                          className="sr-only" 
-                        />
+                      <button
+                        type="button"
+                        onClick={() => handleFollowUpToggle(!needsFollowUp)}
+                        className={`flex flex-col space-y-3 rounded-xl border-2 p-6 text-center transition-all duration-200 hover:shadow-md ${
+                          needsFollowUp 
+                            ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-500' 
+                            : 'border-gray-200 bg-white hover:border-gray-300'
+                        }`}
+                      >
                         <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full transition-all duration-200 ${
                           needsFollowUp ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-600'
                         }`}>
@@ -762,7 +806,7 @@ export default function EditIncomingLetterPage() {
                         </div>
                         <span className="font-semibold text-gray-900">Perlu Tindak Lanjut</span>
                         <p className="text-sm text-gray-500">Aktifkan jika surat butuh respons</p>
-                      </label>
+                      </button>
                     </div>
 
                     {/* Conditional: Event Details */}

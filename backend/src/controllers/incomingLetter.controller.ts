@@ -4,6 +4,7 @@ import { asyncHandler, NotFoundError, ConflictError } from '../middlewares/error
 import { getPagination, createPaginationMeta, createSearchFilter, parseDate } from '../utils/helpers';
 import { CreateIncomingLetterInput, UpdateIncomingLetterInput, ListIncomingLettersQuery } from '../validators/incomingLetter.validator';
 import { Prisma } from '@prisma/client';
+import { createEventNotifications, deleteEventNotifications, updateEventNotifications } from '../services/notificationService';
 
 // User select for including in responses
 const userSelect = {
@@ -188,7 +189,7 @@ export const createIncomingLetter = asyncHandler(async (req: Request, res: Respo
 
   // Create calendar event if invitation
   if (data.isInvitation && data.eventDate) {
-    await prisma.calendarEvent.create({
+    const calendarEvent = await prisma.calendarEvent.create({
       data: {
         title: `[Undangan] ${data.subject}`,
         description: data.eventNotes,
@@ -200,6 +201,14 @@ export const createIncomingLetter = asyncHandler(async (req: Request, res: Respo
         incomingLetterId: letter.id,
       },
     });
+
+    // Create notifications for H-7, H-3, H-1
+    await createEventNotifications(
+      calendarEvent.id,
+      req.user.id,
+      calendarEvent.title,
+      calendarEvent.date
+    );
   }
 
   // Create notification for new letter
@@ -278,16 +287,19 @@ export const updateIncomingLetter = asyncHandler(async (req: Request, res: Respo
     },
   });
 
-  // Handle calendar event based on isInvitation status
+  // Determine final values after update
   const finalIsInvitation = data.isInvitation !== undefined ? data.isInvitation : existingLetter.isInvitation;
   const finalEventDate = data.eventDate !== undefined ? (data.eventDate ? parseDate(data.eventDate) : null) : existingLetter.eventDate;
+  const wasInvitation = existingLetter.isInvitation;
+  const oldEventDate = existingLetter.eventDate;
   
-  if (finalIsInvitation && finalEventDate) {
-    // Check if calendar event already exists
-    const existingCalendarEvent = await prisma.calendarEvent.findFirst({
-      where: { incomingLetterId: id },
-    });
+  // Check if calendar event already exists
+  const existingCalendarEvent = await prisma.calendarEvent.findFirst({
+    where: { incomingLetterId: id },
+  });
 
+  // SCENARIO 1: Changed from non-event to event
+  if (!wasInvitation && finalIsInvitation && finalEventDate) {
     const eventData = {
       title: `[Undangan] ${letter.subject}`,
       description: letter.eventNotes,
@@ -295,7 +307,47 @@ export const updateIncomingLetter = asyncHandler(async (req: Request, res: Respo
       time: letter.eventTime,
       location: letter.eventLocation,
       type: 'MEETING' as const,
-      userId: existingLetter.userId, // Use existing userId
+      userId: existingLetter.userId,
+    };
+
+    // Create new calendar event
+    const calendarEvent = await prisma.calendarEvent.create({
+      data: {
+        ...eventData,
+        incomingLetterId: letter.id,
+      },
+    });
+
+    // Create notifications for H-7, H-3, H-1
+    await createEventNotifications(
+      calendarEvent.id,
+      existingLetter.userId,
+      calendarEvent.title,
+      calendarEvent.date
+    );
+  }
+  // SCENARIO 2: Changed from event to non-event
+  else if (wasInvitation && !finalIsInvitation) {
+    if (existingCalendarEvent) {
+      // Delete all notifications associated with this event
+      await deleteEventNotifications(existingCalendarEvent.id);
+      
+      // Delete calendar event
+      await prisma.calendarEvent.delete({
+        where: { id: existingCalendarEvent.id },
+      });
+    }
+  }
+  // SCENARIO 3: Still an event - update event and notifications if needed
+  else if (finalIsInvitation && finalEventDate) {
+    const eventData = {
+      title: `[Undangan] ${letter.subject}`,
+      description: letter.eventNotes,
+      date: finalEventDate,
+      time: letter.eventTime,
+      location: letter.eventLocation,
+      type: 'MEETING' as const,
+      userId: existingLetter.userId,
     };
 
     if (existingCalendarEvent) {
@@ -304,19 +356,44 @@ export const updateIncomingLetter = asyncHandler(async (req: Request, res: Respo
         where: { id: existingCalendarEvent.id },
         data: eventData,
       });
+
+      // Check if event date changed
+      const dateChanged = oldEventDate && finalEventDate && 
+        oldEventDate.getTime() !== finalEventDate.getTime();
+
+      if (dateChanged) {
+        // Date changed - update notifications (delete old, create new)
+        await updateEventNotifications(
+          existingCalendarEvent.id,
+          existingLetter.userId,
+          eventData.title,
+          eventData.date
+        );
+      }
     } else {
-      // Create new calendar event
-      await prisma.calendarEvent.create({
+      // Calendar event doesn't exist but should - create it
+      const calendarEvent = await prisma.calendarEvent.create({
         data: {
           ...eventData,
           incomingLetterId: letter.id,
         },
       });
+
+      // Create notifications
+      await createEventNotifications(
+        calendarEvent.id,
+        existingLetter.userId,
+        calendarEvent.title,
+        calendarEvent.date
+      );
     }
-  } else if (!finalIsInvitation) {
-    // Delete calendar event if no longer an invitation
-    await prisma.calendarEvent.deleteMany({
-      where: { incomingLetterId: id },
+  }
+  // SCENARIO 4: Was event, still event, but no event date provided
+  else if (finalIsInvitation && !finalEventDate && existingCalendarEvent) {
+    // Delete notifications and calendar event since no valid date
+    await deleteEventNotifications(existingCalendarEvent.id);
+    await prisma.calendarEvent.delete({
+      where: { id: existingCalendarEvent.id },
     });
   }
 
@@ -338,6 +415,16 @@ export const deleteIncomingLetter = asyncHandler(async (req: Request, res: Respo
 
   if (!letter) {
     throw new NotFoundError('Incoming letter');
+  }
+
+  // Find and delete associated calendar events and their notifications
+  const calendarEvents = await prisma.calendarEvent.findMany({
+    where: { incomingLetterId: id },
+  });
+
+  for (const event of calendarEvents) {
+    // Delete notifications for each calendar event
+    await deleteEventNotifications(event.id);
   }
 
   // Delete associated calendar events

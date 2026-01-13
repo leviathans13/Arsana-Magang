@@ -1,7 +1,7 @@
 import { prisma } from '../config/database';
 import { Prisma } from '@prisma/client';
 import { NotFoundError, ConflictError } from '../middlewares/error.middleware';
-import { parseDate } from '../utils/helpers';
+import { parseDate, normalizeFilePath } from '../utils/helpers';
 import { createEventNotifications, deleteEventNotifications, updateEventNotifications } from './notificationService';
 import { CreateOutgoingLetterInput, UpdateOutgoingLetterInput } from '../validators/outgoingLetter.validator';
 
@@ -111,7 +111,7 @@ export class OutgoingLetterService {
         processingMethod: data.processingMethod,
         srikandiDispositionNumber: data.srikandiDispositionNumber,
         fileName: file?.originalname,
-        filePath: file?.path ? file.path.replace(/\\/g, '/').replace(/^uploads\//, '') : undefined,
+        filePath: file?.path ? normalizeFilePath(file.path) : undefined,
         user: {
           connect: { id: userId },
         },
@@ -215,7 +215,7 @@ export class OutgoingLetterService {
         ...(data.securityClass && { securityClass: data.securityClass }),
         ...(data.processingMethod && { processingMethod: data.processingMethod }),
         ...(data.srikandiDispositionNumber !== undefined && { srikandiDispositionNumber: data.srikandiDispositionNumber }),
-        ...(file && { fileName: file.originalname, filePath: file.path.replace(/\\/g, '/').replace(/^uploads\//, '') }),
+        ...(file && { fileName: file.originalname, filePath: normalizeFilePath(file.path) }),
       };
 
       const letter = await tx.outgoingLetter.update({

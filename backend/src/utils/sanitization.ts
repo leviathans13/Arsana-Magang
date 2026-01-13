@@ -24,7 +24,7 @@ export const escapeHtml = (str: string): string => {
  * Allows: alphanumeric, spaces, common punctuation, Indonesian characters
  */
 export const sanitizeString = (str: string): string => {
-  if (typeof str !== 'string') return str;
+  if (typeof str !== 'string') return '';
   
   // Remove null bytes and control characters except newlines and tabs
   let sanitized = str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
@@ -68,6 +68,7 @@ export const sanitizeObject = (obj: any): any => {
 
 /**
  * Validate and sanitize email address
+ * Returns cleaned email or empty string if invalid
  */
 export const sanitizeEmail = (email: string): string => {
   if (typeof email !== 'string') return '';
@@ -78,8 +79,9 @@ export const sanitizeEmail = (email: string): string => {
   // Basic email validation regex
   const emailRegex = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
   
+  // Return cleaned email if valid, empty string otherwise
   if (!emailRegex.test(cleaned)) {
-    throw new Error('Invalid email format');
+    return '';
   }
   
   return cleaned;

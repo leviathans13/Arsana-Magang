@@ -5,4 +5,4 @@ export { uploadIncoming, uploadOutgoing, upload, uploadSingleIncoming, uploadSin
 export { apiRateLimiter, loginRateLimiter, sensitiveOperationRateLimiter } from './rateLimit.middleware';
 export { requestLogger } from './requestLogger.middleware';
 export { notFoundHandler } from './notFound.middleware';
-export { sanitizeInput, sanitizeFileUpload } from './sanitize.middleware';
+export { sanitizeInput } from './sanitize.middleware';

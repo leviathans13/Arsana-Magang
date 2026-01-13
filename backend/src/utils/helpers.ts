@@ -135,3 +135,13 @@ export const errorResponse = (error: string, message?: string): ApiResponse<neve
     message,
   };
 };
+
+/**
+ * Normalize file path for storage
+ * Removes 'uploads/' prefix and converts backslashes to forward slashes
+ */
+export const normalizeFilePath = (filePath: string): string => {
+  return filePath
+    .replace(/\\/g, '/')        // Convert backslashes to forward slashes
+    .replace(/^uploads\//, ''); // Remove uploads/ prefix
+};

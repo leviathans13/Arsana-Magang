@@ -1,16 +1,9 @@
 import { Request, Response } from 'express';
-import { prisma } from '../config/database';
-import { asyncHandler, NotFoundError, ConflictError } from '../middlewares/error.middleware';
+import { asyncHandler } from '../middlewares/error.middleware';
 import { getPagination, createPaginationMeta, createSearchFilter, parseDate } from '../utils/helpers';
-import { CreateOutgoingLetterInput, UpdateOutgoingLetterInput, ListOutgoingLettersQuery } from '../validators/outgoingLetter.validator';
+import { ListOutgoingLettersQuery } from '../validators/outgoingLetter.validator';
 import { Prisma } from '@prisma/client';
-
-// User select for including in responses
-const userSelect = {
-  id: true,
-  name: true,
-  email: true,
-};
+import { outgoingLetterService } from '../services/outgoingLetterService';
 
 // Get all outgoing letters with pagination and filters
 export const getOutgoingLetters = asyncHandler(async (req: Request, res: Response) => {
@@ -77,21 +70,13 @@ export const getOutgoingLetters = asyncHandler(async (req: Request, res: Respons
     orderBy.letterDate = 'desc';
   }
 
-  // Get letters and count
-  const [letters, total] = await Promise.all([
-    prisma.outgoingLetter.findMany({
-      where,
-      skip,
-      take,
-      orderBy,
-      include: {
-        user: {
-          select: userSelect,
-        },
-      },
-    }),
-    prisma.outgoingLetter.count({ where }),
-  ]);
+  // Use service layer for business logic
+  const { letters, total } = await outgoingLetterService.getOutgoingLetters({
+    skip,
+    take,
+    where,
+    orderBy,
+  });
 
   res.json({
     success: true,
@@ -106,18 +91,8 @@ export const getOutgoingLetters = asyncHandler(async (req: Request, res: Respons
 export const getOutgoingLetterById = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
 
-  const letter = await prisma.outgoingLetter.findUnique({
-    where: { id },
-    include: {
-      user: {
-        select: userSelect,
-      },
-    },
-  });
-
-  if (!letter) {
-    throw new NotFoundError('Outgoing letter');
-  }
+  // Use service layer
+  const letter = await outgoingLetterService.getOutgoingLetterById(id);
 
   res.json({
     success: true,
@@ -132,80 +107,15 @@ export const createOutgoingLetter = asyncHandler(async (req: Request, res: Respo
     return;
   }
 
-  const data = req.body as CreateOutgoingLetterInput;
+  const data = req.body;
   const file = req.file;
 
-  // Check for duplicate letter number
-  const existing = await prisma.outgoingLetter.findUnique({
-    where: { letterNumber: data.letterNumber },
-  });
-
-  if (existing) {
-    throw new ConflictError('Letter number already exists', 'letterNumber');
-  }
-
-  // Parse dates
-  const letterData: Prisma.OutgoingLetterCreateInput = {
-    createdDate: parseDate(data.createdDate),
-    letterDate: parseDate(data.letterDate),
-    letterNumber: data.letterNumber,
-    letterNature: data.letterNature,
-    subject: data.subject,
-    sender: data.sender,
-    recipient: data.recipient,
-    processor: data.processor,
-    note: data.note,
-    isInvitation: data.isInvitation,
-    eventDate: data.eventDate ? parseDate(data.eventDate) : null,
-    eventTime: data.eventTime,
-    eventLocation: data.eventLocation,
-    eventNotes: data.eventNotes,
-    executionDate: data.executionDate ? parseDate(data.executionDate) : null,
-    classificationCode: data.classificationCode,
-    serialNumber: data.serialNumber,
-    securityClass: data.securityClass,
-    processingMethod: data.processingMethod,
-    srikandiDispositionNumber: data.srikandiDispositionNumber,
-    fileName: file?.originalname,
-    filePath: file?.path ? file.path.replace(/\\/g, '/').replace(/^uploads\//, '') : undefined,
-    user: {
-      connect: { id: req.user.id },
-    },
-  };
-
-  const letter = await prisma.outgoingLetter.create({
-    data: letterData,
-    include: {
-      user: {
-        select: userSelect,
-      },
-    },
-  });
-
-  // Create calendar event if invitation
-  if (data.isInvitation && data.eventDate) {
-    await prisma.calendarEvent.create({
-      data: {
-        title: `[Undangan Keluar] ${data.subject}`,
-        description: data.eventNotes,
-        date: parseDate(data.eventDate),
-        time: data.eventTime,
-        location: data.eventLocation,
-        type: 'MEETING',
-        userId: req.user.id,
-        outgoingLetterId: letter.id,
-      },
-    });
-  }
-
-  // Create notification for new letter
-  await prisma.notification.create({
-    data: {
-      title: 'Surat Keluar Baru',
-      message: `Surat keluar baru: ${data.letterNumber} - ${data.subject}`,
-      type: 'INFO',
-    },
-  });
+  // Use service layer with transaction handling
+  const letter = await outgoingLetterService.createOutgoingLetter(
+    data,
+    req.user.id,
+    file
+  );
 
   res.status(201).json({
     success: true,
@@ -217,105 +127,11 @@ export const createOutgoingLetter = asyncHandler(async (req: Request, res: Respo
 // Update outgoing letter
 export const updateOutgoingLetter = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const data = req.body as UpdateOutgoingLetterInput;
+  const data = req.body;
   const file = req.file;
 
-  // Check if letter exists
-  const existingLetter = await prisma.outgoingLetter.findUnique({
-    where: { id },
-  });
-
-  if (!existingLetter) {
-    throw new NotFoundError('Outgoing letter');
-  }
-
-  // Check for duplicate letter number (if changing)
-  if (data.letterNumber && data.letterNumber !== existingLetter.letterNumber) {
-    const duplicate = await prisma.outgoingLetter.findUnique({
-      where: { letterNumber: data.letterNumber },
-    });
-
-    if (duplicate) {
-      throw new ConflictError('Letter number already exists', 'letterNumber');
-    }
-  }
-
-  // Build update data
-  const updateData: Prisma.OutgoingLetterUpdateInput = {
-    ...(data.createdDate && { createdDate: parseDate(data.createdDate) }),
-    ...(data.letterDate && { letterDate: parseDate(data.letterDate) }),
-    ...(data.letterNumber && { letterNumber: data.letterNumber }),
-    ...(data.letterNature && { letterNature: data.letterNature }),
-    ...(data.subject && { subject: data.subject }),
-    ...(data.sender && { sender: data.sender }),
-    ...(data.recipient && { recipient: data.recipient }),
-    ...(data.processor && { processor: data.processor }),
-    ...(data.note !== undefined && { note: data.note }),
-    ...(data.isInvitation !== undefined && { isInvitation: data.isInvitation }),
-    ...(data.eventDate !== undefined && { eventDate: data.eventDate ? parseDate(data.eventDate) : null }),
-    ...(data.eventTime !== undefined && { eventTime: data.eventTime }),
-    ...(data.eventLocation !== undefined && { eventLocation: data.eventLocation }),
-    ...(data.eventNotes !== undefined && { eventNotes: data.eventNotes }),
-    ...(data.executionDate !== undefined && { executionDate: data.executionDate ? parseDate(data.executionDate) : null }),
-    ...(data.classificationCode !== undefined && { classificationCode: data.classificationCode }),
-    ...(data.serialNumber !== undefined && { serialNumber: data.serialNumber }),
-    ...(data.securityClass && { securityClass: data.securityClass }),
-    ...(data.processingMethod && { processingMethod: data.processingMethod }),
-    ...(data.srikandiDispositionNumber !== undefined && { srikandiDispositionNumber: data.srikandiDispositionNumber }),
-    ...(file && { fileName: file.originalname, filePath: file.path.replace(/\\/g, '/').replace(/^uploads\//, '') }),
-  };
-
-  const letter = await prisma.outgoingLetter.update({
-    where: { id },
-    data: updateData,
-    include: {
-      user: {
-        select: userSelect,
-      },
-    },
-  });
-
-  // Handle calendar event based on isInvitation status
-  const finalIsInvitation = data.isInvitation !== undefined ? data.isInvitation : existingLetter.isInvitation;
-  const finalEventDate = data.eventDate !== undefined ? (data.eventDate ? parseDate(data.eventDate) : null) : existingLetter.eventDate;
-  
-  if (finalIsInvitation && finalEventDate) {
-    // Check if calendar event already exists
-    const existingCalendarEvent = await prisma.calendarEvent.findFirst({
-      where: { outgoingLetterId: id },
-    });
-
-    const eventData = {
-      title: `[Undangan Keluar] ${letter.subject}`,
-      description: letter.eventNotes,
-      date: finalEventDate,
-      time: letter.eventTime,
-      location: letter.eventLocation,
-      type: 'MEETING' as const,
-      userId: existingLetter.userId, // Use existing userId
-    };
-
-    if (existingCalendarEvent) {
-      // Update existing calendar event
-      await prisma.calendarEvent.update({
-        where: { id: existingCalendarEvent.id },
-        data: eventData,
-      });
-    } else {
-      // Create new calendar event
-      await prisma.calendarEvent.create({
-        data: {
-          ...eventData,
-          outgoingLetterId: letter.id,
-        },
-      });
-    }
-  } else if (!finalIsInvitation) {
-    // Delete calendar event if no longer an invitation
-    await prisma.calendarEvent.deleteMany({
-      where: { outgoingLetterId: id },
-    });
-  }
+  // Use service layer with transaction handling
+  const letter = await outgoingLetterService.updateOutgoingLetter(id, data, file);
 
   res.json({
     success: true,
@@ -328,24 +144,8 @@ export const updateOutgoingLetter = asyncHandler(async (req: Request, res: Respo
 export const deleteOutgoingLetter = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
 
-  // Check if letter exists
-  const letter = await prisma.outgoingLetter.findUnique({
-    where: { id },
-  });
-
-  if (!letter) {
-    throw new NotFoundError('Outgoing letter');
-  }
-
-  // Delete associated calendar events
-  await prisma.calendarEvent.deleteMany({
-    where: { outgoingLetterId: id },
-  });
-
-  // Delete the letter
-  await prisma.outgoingLetter.delete({
-    where: { id },
-  });
+  // Use service layer with transaction handling
+  await outgoingLetterService.deleteOutgoingLetter(id);
 
   res.json({
     success: true,

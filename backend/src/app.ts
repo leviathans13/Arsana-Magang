@@ -7,7 +7,7 @@ import fs from 'fs';
 import { config } from './config/env';
 import { prisma } from './config/database';
 import { logger } from './utils/logger';
-import { errorHandler, notFoundHandler, apiRateLimiter, requestLogger } from './middlewares';
+import { errorHandler, notFoundHandler, apiRateLimiter, requestLogger, sanitizeInput } from './middlewares';
 import routes from './routes';
 import { initCronJobs } from './services/cronService';
 import { setupSwagger } from './config/swagger';
@@ -18,8 +18,24 @@ const app = express();
 // Trust proxy (for rate limiting behind reverse proxy)
 app.set('trust proxy', 1);
 
-// Security middleware
-app.use(helmet());
+// Security middleware - Enhanced helmet configuration
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles for development
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // Disable for API server
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin requests
+}));
 
 // CORS configuration
 app.use(
@@ -40,6 +56,9 @@ app.use(requestLogger);
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Input sanitization (applied after body parsing)
+app.use(sanitizeInput);
 
 // Ensure upload directories exist
 const uploadDirs = [

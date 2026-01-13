@@ -126,13 +126,29 @@ export const sanitizeSQLPattern = (str: string): string => {
 };
 
 /**
- * Strip HTML tags (for text-only fields)
+ * Strip HTML tags and encode remaining special characters (for text-only fields)
+ * 
+ * Security Note: This function is safe against incomplete tag injection because:
+ * 1. First pass removes all complete HTML tags
+ * 2. Second pass encodes any remaining < or > characters to HTML entities
+ * This ensures that even if the first regex leaves behind partial tags like "<script",
+ * they will be encoded to "&lt;script" and rendered as plain text, not executed.
+ * 
+ * @param str - Input string that may contain HTML
+ * @returns Sanitized string with HTML tags removed and special chars encoded
  */
 export const stripHtmlTags = (str: string): string => {
   if (typeof str !== 'string') return str;
   
-  // Remove all HTML tags
-  return str.replace(/<[^>]*>/g, '');
+  // Step 1: Remove all complete HTML tags (e.g., <div>, <script>test</script>)
+  // CodeQL Note: This regex may leave incomplete tags, but they're handled in step 2
+  let sanitized = str.replace(/<[^>]*>/g, '');
+  
+  // Step 2: Encode any remaining < or > characters to prevent incomplete tag injection
+  // This ensures any leftover fragments like "<script" become "&lt;script"
+  sanitized = sanitized.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  
+  return sanitized;
 };
 
 /**

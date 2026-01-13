@@ -25,7 +25,7 @@ export const loginRateLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: false,
+  skipSuccessfulRequests: true, // Only count failed login attempts
 });
 
 // Rate limiter for password reset / sensitive operations

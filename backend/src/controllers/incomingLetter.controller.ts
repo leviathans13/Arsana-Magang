@@ -171,7 +171,7 @@ export const createIncomingLetter = asyncHandler(async (req: Request, res: Respo
     dispositionTarget: data.dispositionTarget,
     srikandiDispositionNumber: data.srikandiDispositionNumber,
     fileName: file?.originalname,
-    filePath: file?.path,
+    filePath: file?.path ? file.path.replace(/\\/g, '/').replace(/^uploads\//, '') : undefined,
     user: {
       connect: { id: req.user.id },
     },
@@ -265,7 +265,7 @@ export const updateIncomingLetter = asyncHandler(async (req: Request, res: Respo
     ...(data.processingMethod && { processingMethod: data.processingMethod }),
     ...(data.dispositionTarget !== undefined && { dispositionTarget: data.dispositionTarget }),
     ...(data.srikandiDispositionNumber !== undefined && { srikandiDispositionNumber: data.srikandiDispositionNumber }),
-    ...(file && { fileName: file.originalname, filePath: file.path }),
+    ...(file && { fileName: file.originalname, filePath: file.path.replace(/\\/g, '/').replace(/^uploads\//, '') }),
   };
 
   const letter = await prisma.incomingLetter.update({

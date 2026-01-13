@@ -80,7 +80,7 @@ export const FILE_UPLOAD = {
 export const RATE_LIMIT = {
   WINDOW_MS: 15 * 60 * 1000, // 15 minutes
   MAX_REQUESTS: 100,
-  LOGIN_MAX_REQUESTS: 5,
+  LOGIN_MAX_REQUESTS: 20, // Increased from 5 to 20 to prevent "Too many requests" errors
 } as const;
 
 // Notification reminder days

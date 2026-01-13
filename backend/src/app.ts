@@ -54,6 +54,9 @@ uploadDirs.forEach((dir) => {
   }
 });
 
+// Serve static files from uploads directory
+app.use('/uploads', express.static(config.uploadPath));
+
 // Health check endpoint
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({

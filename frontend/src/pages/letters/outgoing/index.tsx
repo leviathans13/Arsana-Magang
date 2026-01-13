@@ -74,7 +74,7 @@ export default function OutgoingLettersPage() {
     e.stopPropagation();
     if (letter.filePath) {
       const baseURL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000';
-      window.open(`${baseURL}/${letter.filePath}`, '_blank');
+      window.open(`${baseURL}/uploads/${letter.filePath}`, '_blank');
     }
   };
   

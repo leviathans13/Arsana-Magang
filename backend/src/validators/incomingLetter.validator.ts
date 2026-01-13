@@ -15,7 +15,7 @@ const dispositionTargetEnum = z.enum([
   'BIDANG5',
 ]);
 
-// Create incoming letter schema
+// Create incoming letter schema with conditional validation
 export const createIncomingLetterSchema = z.object({
   letterNumber: z.string().min(1, 'Letter number is required'),
   letterDate: z.string().optional(),
@@ -42,9 +42,20 @@ export const createIncomingLetterSchema = z.object({
   processingMethod: processingMethodEnum.optional().default('MANUAL'),
   dispositionTarget: dispositionTargetEnum.optional(),
   srikandiDispositionNumber: z.string().optional(),
+}).refine((data) => {
+  // If isInvitation is true, eventDate is required
+  if (data.isInvitation) {
+    return !!data.eventDate;
+  }
+  return true;
+}, {
+  message: 'Event date is required when letter is marked as invitation/event',
+  path: ['eventDate'],
 });
 
-// Update incoming letter schema (all fields optional)
+// Update incoming letter schema (all fields optional) with conditional validation
+// Note: This validates only the incoming request data. The controller handles validation
+// against the final combined state (existing + updates) to ensure data integrity.
 export const updateIncomingLetterSchema = z.object({
   letterNumber: z.string().min(1).optional(),
   letterDate: z.string().optional(),
@@ -71,6 +82,15 @@ export const updateIncomingLetterSchema = z.object({
   processingMethod: processingMethodEnum.optional(),
   dispositionTarget: dispositionTargetEnum.optional(),
   srikandiDispositionNumber: z.string().optional(),
+}).refine((data) => {
+  // If isInvitation is being set to true, eventDate must be provided
+  if (data.isInvitation === true) {
+    return !!data.eventDate;
+  }
+  return true;
+}, {
+  message: 'Event date is required when letter is marked as invitation/event',
+  path: ['eventDate'],
 });
 
 // Query params schema for listing
